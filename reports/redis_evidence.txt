@@ -1,0 +1,8 @@
+Instance c1 wrote key; instance c2 read it back (shared Redis state):
+  c2.get(...) -> value='[shared] refund answer' score=1.0
+
+Redis KEYS rl:evidence:* :
+  rl:evidence:f452fc0bc027
+
+HGETALL of first key:
+  {'query': 'What is the refund policy?', 'response': '[shared] refund answer'}

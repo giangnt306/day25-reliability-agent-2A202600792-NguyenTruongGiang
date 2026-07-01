@@ -41,56 +41,75 @@ class CircuitBreaker:
     def allow_request(self) -> bool:
         """Return whether a request should be attempted.
 
-        TODO(student): Implement the state-based logic:
-        - CLOSED → always allow
-        - HALF_OPEN → allow (probe request)
-        - OPEN → check if reset_timeout_seconds has elapsed since opened_at
-          - If elapsed: transition to HALF_OPEN (use _transition()) and allow
-          - If not elapsed: deny (return False)
-
-        Use time.monotonic() for elapsed time comparison.
+        State-based admission control (the "fail fast" gate):
+        - CLOSED    → always allow, provider is considered healthy.
+        - HALF_OPEN → allow a single probe request to test recovery.
+        - OPEN      → deny until reset_timeout_seconds has elapsed since
+                      opened_at, then move to HALF_OPEN and allow one probe.
         """
-        raise NotImplementedError("TODO: implement allow_request()")
+        if self.state == CircuitState.CLOSED:
+            return True
+        if self.state == CircuitState.HALF_OPEN:
+            return True
+        # OPEN — only admit once the cool-off window has elapsed.
+        if self.opened_at is not None and (
+            time.monotonic() - self.opened_at >= self.reset_timeout_seconds
+        ):
+            self._transition(CircuitState.HALF_OPEN, reason="reset_timeout_elapsed")
+            return True
+        return False
 
     def call(self, fn: Callable[..., T], *args: object, **kwargs: object) -> T:
         """Call a function through the circuit breaker.
 
-        TODO(student): Implement:
-        1. Check allow_request() — if denied, raise CircuitOpenError
-        2. Try calling fn(*args, **kwargs)
-        3. On success: call record_success() and return the result
-        4. On exception: call record_failure() and re-raise
+        Fails fast when the circuit is open, otherwise wraps the call so that
+        every outcome updates the state machine (no manual bookkeeping needed
+        by callers).
         """
-        raise NotImplementedError("TODO: implement call()")
+        if not self.allow_request():
+            raise CircuitOpenError(f"circuit '{self.name}' is open")
+        try:
+            result = fn(*args, **kwargs)
+        except Exception:
+            self.record_failure()
+            raise
+        self.record_success()
+        return result
 
     def record_success(self) -> None:
         """Record a successful call.
 
-        TODO(student): Implement:
-        1. Reset failure_count to 0
-        2. Increment success_count
-        3. If in HALF_OPEN and success_count >= success_threshold:
-           - Transition to CLOSED with reason "probe_success"
-           - Reset success_count to 0
+        A success clears the consecutive-failure counter. While probing
+        (HALF_OPEN) we require ``success_threshold`` consecutive probes before
+        declaring the provider healthy again (CLOSED).
         """
-        raise NotImplementedError("TODO: implement record_success()")
+        self.failure_count = 0
+        self.success_count += 1
+        if (
+            self.state == CircuitState.HALF_OPEN
+            and self.success_count >= self.success_threshold
+        ):
+            self._transition(CircuitState.CLOSED, reason="probe_success")
+            self.success_count = 0
 
     def record_failure(self) -> None:
         """Record a failed call.
 
-        TODO(student): Implement:
-        1. Increment failure_count, reset success_count to 0
-        2. If in HALF_OPEN state:
-           - Immediately transition to OPEN with reason "probe_failure"
-           - Set opened_at = time.monotonic()
-        3. Else if failure_count >= failure_threshold:
-           - Transition to OPEN with reason "failure_threshold_reached"
-           - Set opened_at = time.monotonic()
-
-        IMPORTANT: HALF_OPEN and threshold cases need DIFFERENT reasons
-        and must be handled separately (if/elif, not combined with or).
+        Two *distinct* triggers re-open the circuit, kept separate on purpose
+        (if/elif, never combined with ``or``) so the transition log records
+        *why* the circuit opened:
+        - A failed HALF_OPEN probe re-opens immediately ("probe_failure").
+        - Reaching the consecutive-failure threshold in CLOSED opens with
+          "failure_threshold_reached".
         """
-        raise NotImplementedError("TODO: implement record_failure()")
+        self.failure_count += 1
+        self.success_count = 0
+        if self.state == CircuitState.HALF_OPEN:
+            self._transition(CircuitState.OPEN, reason="probe_failure")
+            self.opened_at = time.monotonic()
+        elif self.failure_count >= self.failure_threshold:
+            self._transition(CircuitState.OPEN, reason="failure_threshold_reached")
+            self.opened_at = time.monotonic()
 
     def _transition(self, new_state: CircuitState, reason: str) -> None:
         if self.state == new_state:

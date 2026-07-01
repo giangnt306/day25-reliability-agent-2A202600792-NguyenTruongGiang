@@ -1,4 +1,4 @@
-.PHONY: test lint typecheck run-chaos report clean docker-up docker-down
+.PHONY: test lint typecheck run-chaos evidence report demo clean docker-up docker-down
 
 test:
 	pytest -q
@@ -12,8 +12,14 @@ typecheck:
 run-chaos:
 	python scripts/run_chaos.py --config configs/default.yaml --out reports/metrics.json
 
+evidence:
+	python scripts/run_evidence.py
+
 report:
-	python scripts/generate_report.py --metrics reports/metrics.json --out reports/final_report.md
+	python scripts/generate_report.py --metrics reports/metrics.json --out reports/auto_report.md
+
+demo:
+	python scripts/demo_server.py
 
 docker-up:
 	docker compose up -d

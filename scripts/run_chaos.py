@@ -16,6 +16,11 @@ def main() -> None:
     metrics.write_json(args.out)
     print(f"wrote {args.out}")
 
+    # Also emit a flat CSV alongside the JSON for spreadsheet/BI tooling.
+    csv_out = args.out.rsplit(".", 1)[0] + ".csv"
+    metrics.write_csv(csv_out)
+    print(f"wrote {csv_out}")
+
 
 if __name__ == "__main__":
     main()

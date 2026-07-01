@@ -1,0 +1,32 @@
+{
+  "with_cache": {
+    "total_requests": 100,
+    "availability": 1.0,
+    "error_rate": 0.0,
+    "latency_p50_ms": 212.11,
+    "latency_p95_ms": 235.24,
+    "latency_p99_ms": 237.9,
+    "fallback_success_rate": 0.0,
+    "cache_hit_rate": 0.59,
+    "circuit_open_count": 0,
+    "recovery_time_ms": null,
+    "estimated_cost": 0.02423,
+    "estimated_cost_saved": 0.059,
+    "scenarios": {}
+  },
+  "without_cache": {
+    "total_requests": 100,
+    "availability": 1.0,
+    "error_rate": 0.0,
+    "latency_p50_ms": 208.59,
+    "latency_p95_ms": 238.11,
+    "latency_p99_ms": 239.16,
+    "fallback_success_rate": 0.0,
+    "cache_hit_rate": 0.0,
+    "circuit_open_count": 0,
+    "recovery_time_ms": null,
+    "estimated_cost": 0.0581,
+    "estimated_cost_saved": 0.0,
+    "scenarios": {}
+  }
+}
